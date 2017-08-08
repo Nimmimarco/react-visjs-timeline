@@ -42,10 +42,18 @@ export default class Timeline extends Component {
   }
 
   componentWillUnmount() {
-    this.TimelineElement.destroy()
+    this.$el.destroy()
   }
 
   componentDidMount() {
+    const { container } = this.refs
+
+    this.$el = new vis.Timeline(container)
+
+    events.forEach(event => {
+      this.$el.on(event, this.props[`${event}Handler`])
+    })
+
     this.init()
   }
 
@@ -74,14 +82,7 @@ export default class Timeline extends Component {
       customTimesChange
   }
 
-  // create timeline element
-  // set custom time(s)
-  // set data set
-
   init() {
-    const { container } = this.refs
-    let $el = this.TimelineElement
-
     const {
       items,
       groups,
@@ -92,44 +93,29 @@ export default class Timeline extends Component {
       currentTime
     } = this.props
 
-    const timelineItems = new vis.DataSet(items)
-    const timelineGroups = new vis.DataSet(groups)
-    const hasGroups = timelineGroups.length 
-    const timelineExists = !!$el
+    const hasGroups = groups.length > 0
+    let timelineOptions = options
 
-    if (timelineExists) {
-      $el.setItems(timelineItems)
-      if (hasGroups) {
-        $el.setGroups(timelineGroups)
-      }
-
-      let updatedOptions
-
+    if (animate) {
       // If animate option is set, we should animate the timeline to any new
       // start/end values instead of jumping straight to them
-      if (animate) {
-        updatedOptions = omit(options, 'start', 'end')
-        $el.setWindow(options.start, options.end, { animation: animate })
-      }
+      timelineOptions = omit(options, 'start', 'end')
 
-      $el.setOptions(updatedOptions)
-      $el.setSelection(selection)
-
-    } else {
-      if (hasGroups) {
-        $el = this.TimelineElement = new vis.Timeline(container, timelineItems, timelineGroups, options)
-      }
-      else {
-        $el = this.TimelineElement = new vis.Timeline(container, timelineItems, options)
-      }
-
-      events.forEach(event => {
-        $el.on(event, this.props[`${event}Handler`])
+      this.$el.setWindow(options.start, options.end, {
+        animation: animate
       })
     }
 
+    this.$el.setOptions(timelineOptions)
+    this.$el.setItems(items)
+    this.$el.setSelection(selection)
+
+    if (hasGroups) {
+      this.$el.setGroups(groups)
+    }
+
     if (currentTime) {
-      $el.setCurrentTime(currentTime)
+      this.$el.setCurrentTime(currentTime)
     }
 
     // diff the custom times to decipher new, removing, updating
@@ -140,21 +126,19 @@ export default class Timeline extends Component {
     const customTimeKeysToUpdate = intersection(customTimeKeysPrev, customTimeKeysNew)
 
     // NOTE this has to be in arrow function so context of `this` is based on
-    // $el and not `each`
-    each(customTimeKeysToRemove, id => $el.removeCustomTime(id))
+    // this.$el and not `each`
+    each(customTimeKeysToRemove, id => this.$el.removeCustomTime(id))
     each(customTimeKeysToAdd, id => {
       const datetime = customTimes[id]
-      $el.addCustomTime(datetime, id)
+      this.$el.addCustomTime(datetime, id)
     })
     each(customTimeKeysToUpdate, id => {
       const datetime = customTimes[id]
-      $el.setCustomTime(datetime, id)
+      this.$el.setCustomTime(datetime, id)
     })
 
     // store new customTimes in state for future diff
     this.setState({ customTimes })
-
-
   }
 
   render() {
@@ -184,7 +168,7 @@ Timeline.propTypes = assign({
 
 Timeline.defaultProps = assign({
   items: [],
-  groups: null,
+  groups: [],
   options: {},
   selection: [],
   customTimes: {},
