@@ -57,9 +57,12 @@ export default class Timeline extends Component {
     this.init()
   }
 
+  componentWillReceiveProps(nextProps){
+    this.$el.fit()
+  }
+
   componentDidUpdate() {
     this.init()
-    this.TimelineElement.fit()
   }
 
   shouldComponentUpdate(nextProps) {
